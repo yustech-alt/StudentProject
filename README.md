@@ -65,4 +65,3 @@ npm run test
 The first admin account is created once, at `/admin-setup`, by any logged-in
 user, and only while no admin exists yet. After that, promote further admins
 directly in the `user_roles` table.
-# StudentProject

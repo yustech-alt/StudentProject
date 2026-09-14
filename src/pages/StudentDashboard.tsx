@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
-import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { PaymentStatusBadge } from "@/components/payment/PaymentStatusBadge";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useApp } from "@/contexts/AppContext";
@@ -86,55 +85,32 @@ const StudentDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Onboarding Modal */}
+    <>
       <OnboardingModal open={showOnboarding} onComplete={handleCompleteOnboarding} />
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <GraduationCap className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold text-foreground">ProjectSupport</span>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <NotificationsPanel
-              notifications={notifications}
-              onMarkAsRead={markNotificationAsRead}
-              onMarkAllAsRead={markAllNotificationsAsRead}
-              onDelete={deleteNotification}
-            />
-            <ProfileDropdown
-              user={currentUser}
-              onUpdateProfile={updateProfile}
-              onLogout={handleLogout}
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container py-8">
-        {/* Welcome Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-              Welcome back, {currentUser.name.split(" ")[0]} 👋
-            </h1>
-            <p className="text-muted-foreground">
-              Track your projects and collaborate with your experts.
-            </p>
-          </div>
-          <Button asChild className="gap-2 w-full md:w-auto">
+      <DashboardLayout
+        role="student"
+        title="Student Dashboard"
+        description="Track your projects and collaborate with your experts."
+        notifications={notifications}
+        onMarkAsRead={markNotificationAsRead}
+        onMarkAllAsRead={markAllNotificationsAsRead}
+        onDeleteNotification={deleteNotification}
+        user={currentUser}
+        onUpdateProfile={updateProfile}
+        onLogout={handleLogout}
+        headerActions={
+          <Button asChild size="sm" className="gap-2">
             <Link to="/new-project">
               <Plus className="h-4 w-4" />
               New Project Request
             </Link>
           </Button>
-        </div>
+        }
+      >
+        <h2 className="text-xl font-semibold text-foreground mb-6">
+          Welcome back, {currentUser.name.split(" ")[0]} 👋
+        </h2>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -278,8 +254,8 @@ const StudentDashboard = () => {
             </CardContent>
           </Card>
         )}
-      </main>
-    </div>
+      </DashboardLayout>
+    </>
   );
 };
 

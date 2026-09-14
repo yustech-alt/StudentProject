@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -16,12 +17,15 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  GraduationCap, 
   Clock, 
   CheckCircle2, 
   Users,
@@ -30,10 +34,13 @@ import {
   UserPlus,
   Eye,
   AlertCircle,
+  Ban,
+  ShieldCheck as ShieldCheckIcon,
+  MessageSquare,
+  ListChecks,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
-import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { PaymentStatusBadge } from "@/components/payment/PaymentStatusBadge";
 import { useApp } from "@/contexts/AppContext";
@@ -69,6 +76,7 @@ const AdminDashboard = () => {
     deleteNotification,
     assignExpert,
     reviewExpertApplication,
+    suspendUser,
     completeOnboarding,
   } = useApp();
 
@@ -77,6 +85,9 @@ const AdminDashboard = () => {
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<typeof projects[0] | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [oversightProject, setOversightProject] = useState<typeof projects[0] | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<{ userId: string; name: string; currentlySuspended: boolean } | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
 
   // Check if onboarding should be shown
   useEffect(() => {
@@ -129,6 +140,24 @@ const AdminDashboard = () => {
     });
   };
 
+  const handleConfirmSuspend = async () => {
+    if (!suspendTarget) return;
+    const nextSuspended = !suspendTarget.currentlySuspended;
+    const result = await suspendUser(suspendTarget.userId, nextSuspended, suspendReason.trim() || undefined);
+    if (!result.success) {
+      toast({ title: "Couldn't update account", description: result.error, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: nextSuspended ? "Account suspended" : "Account reinstated",
+      description: nextSuspended
+        ? `${suspendTarget.name} has been suspended and signed out of the platform.`
+        : `${suspendTarget.name} can use ProjectSupport again.`,
+    });
+    setSuspendTarget(null);
+    setSuspendReason("");
+  };
+
   const handleUpdateProfile = (updatedData: Partial<typeof currentUser>) => {
     updateProfile(updatedData);
     toast({
@@ -176,54 +205,24 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Onboarding Modal */}
+    <>
       <OnboardingModal
         open={showOnboarding}
         onComplete={handleCompleteOnboarding}
       />
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <GraduationCap className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold text-foreground">ProjectSupport</span>
-            <Badge variant="destructive" className="ml-2 text-xs">Admin</Badge>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <NotificationsPanel
-              notifications={notifications}
-              onMarkAsRead={handleMarkAsRead}
-              onMarkAllAsRead={handleMarkAllAsRead}
-              onDelete={handleDeleteNotification}
-            />
-            <ProfileDropdown
-              user={userForDropdown}
-              onUpdateProfile={handleUpdateProfile}
-              onLogout={handleLogout}
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container py-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              Admin Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Manage projects, assign experts, and monitor progress.
-            </p>
-          </div>
-        </div>
-
+      <DashboardLayout
+        role="admin"
+        title="Admin Dashboard"
+        description="Manage projects, assign experts, and monitor progress."
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        user={userForDropdown}
+        onUpdateProfile={handleUpdateProfile}
+        onLogout={handleLogout}
+      >
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
           <Card className="shadow-card border-l-4 border-l-warning">
@@ -305,6 +304,49 @@ const AdminDashboard = () => {
                       Approve
                     </Button>
                   </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Expert Management: this is real moderation power, not just viewing */}
+        {experts.length > 0 && (
+          <Card className="shadow-card mb-8">
+            <CardHeader>
+              <CardTitle>Experts</CardTitle>
+              <CardDescription>
+                Suspend an expert who violates platform rules. They're signed out immediately and
+                can't be assigned to new projects while suspended.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {experts.map((expert) => (
+                <div key={expert.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {expert.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">{expert.name}</p>
+                        {expert.verified && <Badge variant="outline" className="text-xs">Verified</Badge>}
+                        {expert.suspended && <Badge variant="destructive" className="text-xs">Suspended</Badge>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{expert.specialty} • {expert.activeProjects} active projects</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={expert.suspended ? "outline" : "destructive"}
+                    className="gap-1 shrink-0"
+                    onClick={() => setSuspendTarget({ userId: expert.id, name: expert.name, currentlySuspended: expert.suspended })}
+                  >
+                    {expert.suspended ? <ShieldCheckIcon className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                    {expert.suspended ? "Reinstate" : "Suspend"}
+                  </Button>
                 </div>
               ))}
             </CardContent>
@@ -409,10 +451,8 @@ const AdminDashboard = () => {
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link to={`/project/${project.id}`}>
-                                <Eye className="h-4 w-4" />
-                              </Link>
+                            <Button variant="ghost" size="sm" onClick={() => setOversightProject(project)}>
+                              <Eye className="h-4 w-4" />
                             </Button>
                             {!assignedExpert && (
                               <Dialog open={assignDialogOpen && selectedProject?.id === project.id} onOpenChange={(open) => {
@@ -472,8 +512,148 @@ const AdminDashboard = () => {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </DashboardLayout>
+
+      {/* Project Oversight: admins can see everything, but there is no
+          message input and no confirm/edit button anywhere in here. This is
+          supervision, not participation. */}
+      <Dialog open={!!oversightProject} onOpenChange={(open) => !open && setOversightProject(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{oversightProject?.title}</DialogTitle>
+            <DialogDescription>
+              Read-only oversight. Student: {oversightProject?.studentName} • Expert: {oversightProject?.expertName || "Unassigned"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-2 pb-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              className="gap-1"
+              onClick={() => oversightProject && setSuspendTarget({
+                userId: oversightProject.studentId,
+                name: oversightProject.studentName,
+                currentlySuspended: false,
+              })}
+            >
+              <Ban className="h-3.5 w-3.5" />
+              Suspend Student
+            </Button>
+            {oversightProject?.expertId && (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-1"
+                onClick={() => oversightProject.expertId && setSuspendTarget({
+                  userId: oversightProject.expertId,
+                  name: oversightProject.expertName || "Expert",
+                  currentlySuspended: experts.find(e => e.id === oversightProject.expertId)?.suspended || false,
+                })}
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Suspend Expert
+              </Button>
+            )}
+          </div>
+
+          <Tabs defaultValue="milestones" className="flex-1 overflow-hidden flex flex-col">
+            <TabsList>
+              <TabsTrigger value="milestones" className="gap-1.5">
+                <ListChecks className="h-4 w-4" />
+                Milestones
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="gap-1.5">
+                <MessageSquare className="h-4 w-4" />
+                Messages
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="milestones" className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[45vh] pr-4">
+                <div className="space-y-3">
+                  {oversightProject?.milestones.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No milestones yet.</p>
+                  )}
+                  {oversightProject?.milestones.map((m) => (
+                    <div key={m.id} className="p-3 rounded-lg border space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-foreground">{m.seq}. {m.title}</p>
+                        <Badge variant="outline" className="capitalize">{m.status.replace('_', ' ')}</Badge>
+                      </div>
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>Student confirmed: {m.studentConfirmed ? "Yes" : "No"}</span>
+                        <span>Expert confirmed: {m.expertConfirmed ? "Yes" : "No"}</span>
+                        <span>Payout: {m.payoutReleased ? "Released" : "Pending"} (₦{(m.payoutAmount || 0).toLocaleString()})</span>
+                      </div>
+                      {m.feedback && (
+                        <p className="text-sm text-muted-foreground italic">"{m.feedback}"{m.rating ? ` — ${m.rating}/5` : ""}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="messages" className="flex-1 overflow-hidden">
+              <ScrollArea className="h-[45vh] pr-4">
+                <div className="space-y-3">
+                  {oversightProject?.messages.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No messages yet.</p>
+                  )}
+                  {oversightProject?.messages.map((msg) => (
+                    <div key={msg.id} className="p-3 rounded-lg border">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-foreground">{msg.senderName}</span>
+                        <span className="text-xs text-muted-foreground">{new Date(msg.timestamp).toLocaleString()}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{msg.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspend / Reinstate confirmation */}
+      <Dialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {suspendTarget?.currentlySuspended ? "Reinstate" : "Suspend"} {suspendTarget?.name}?
+            </DialogTitle>
+            <DialogDescription>
+              {suspendTarget?.currentlySuspended
+                ? "They'll be able to use ProjectSupport normally again."
+                : "They'll be signed out immediately and blocked from creating projects, sending messages, confirming milestones, or requesting payouts until reinstated."}
+            </DialogDescription>
+          </DialogHeader>
+          {!suspendTarget?.currentlySuspended && (
+            <div className="space-y-2">
+              <Label htmlFor="suspend-reason">Reason (shown to the user)</Label>
+              <Textarea
+                id="suspend-reason"
+                placeholder="e.g. Violated platform guidelines by arranging payment outside the app"
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspendTarget(null)}>Cancel</Button>
+            <Button
+              variant={suspendTarget?.currentlySuspended ? "default" : "destructive"}
+              onClick={handleConfirmSuspend}
+            >
+              {suspendTarget?.currentlySuspended ? "Reinstate" : "Suspend"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -86,6 +88,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_profile_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "messages_sender_profile_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -248,7 +264,22 @@ export type Database = {
           requested_at?: string
           status?: Database["public"]["Enums"]["payout_status"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payouts_expert_profile_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "payouts_expert_profile_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -263,6 +294,9 @@ export type Database = {
           onboarding_completed: boolean | null
           phone: string | null
           specialization: string | null
+          suspended: boolean
+          suspended_at: string | null
+          suspended_reason: string | null
           updated_at: string
           user_id: string
           verification_status: string
@@ -280,6 +314,9 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           specialization?: string | null
+          suspended?: boolean
+          suspended_at?: string | null
+          suspended_reason?: string | null
           updated_at?: string
           user_id: string
           verification_status?: string
@@ -297,6 +334,9 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           specialization?: string | null
+          suspended?: boolean
+          suspended_at?: string | null
+          suspended_reason?: string | null
           updated_at?: string
           user_id?: string
           verification_status?: string
@@ -373,6 +413,20 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "project_files_uploader_profile_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "project_files_uploader_profile_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       projects: {
@@ -423,11 +477,39 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "projects_expert_profile_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "projects_expert_profile_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "projects_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_student_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "projects_student_profile_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -616,6 +698,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_suspended: { Args: { _user_id: string }; Returns: boolean }
       request_payout: {
         Args: {
           _account_name: string
@@ -667,6 +750,29 @@ export type Database = {
           status: Database["public"]["Enums"]["milestone_status"]
           student_confirmed: boolean
           title: string
+        }
+      }
+      set_user_suspension: {
+        Args: { _reason?: string; _suspended: boolean; _user_id: string }
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          institution: string | null
+          location: string | null
+          onboarding_completed: boolean | null
+          phone: string | null
+          specialization: string | null
+          suspended: boolean
+          suspended_at: string | null
+          suspended_reason: string | null
+          updated_at: string
+          user_id: string
+          verification_status: string
+          verified: boolean | null
         }
       }
       start_milestone: {

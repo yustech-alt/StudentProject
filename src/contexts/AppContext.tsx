@@ -24,6 +24,8 @@ export interface User {
   verified?: boolean;
   verificationStatus?: string;
   onboardingCompleted?: boolean;
+  suspended?: boolean;
+  suspendedReason?: string;
 }
 
 export interface Notification {
@@ -103,6 +105,8 @@ export interface Expert {
   activeProjects: number;
   verified: boolean;
   rating: number;
+  suspended: boolean;
+  suspendedReason?: string;
 }
 
 export interface PackageOption {
@@ -182,6 +186,9 @@ interface AppContextType extends AppState {
 
   // Payouts
   requestPayout: (input: { amount: number; bankName: string; accountNumber: string; accountName?: string }) => Promise<{ success: boolean; error?: string }>;
+
+  // Admin-only account moderation
+  suspendUser: (userId: string, suspended: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
 
   refresh: () => Promise<void>;
 
@@ -309,10 +316,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     availableBalance: 0,
     loading: true,
   });
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("projectsupport_onboarding_seen") === "true";
-  });
 
   const currentUser: User | null =
     authUser && profile && role
@@ -331,8 +334,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           verified: profile.verified || false,
           verificationStatus: (profile as any).verification_status || undefined,
           onboardingCompleted: profile.onboarding_completed || false,
+          suspended: (profile as any).suspended || false,
+          suspendedReason: (profile as any).suspended_reason || undefined,
         }
       : null;
+
+  // Per-account, persisted in the database - not a browser-local flag. That
+  // way it correctly shows exactly once per account, on any device, and
+  // never re-shows for that account again after completion.
+  const hasSeenOnboarding = currentUser ? currentUser.onboardingCompleted === true : true;
 
   const fetchInFlight = useRef(false);
 
@@ -388,6 +398,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             activeProjects: projects.filter((proj) => proj.expertId === p.user_id && proj.status === "in_progress").length,
             verified: !!p.verified,
             rating: 4.8,
+            suspended: !!(p as any).suspended,
+            suspendedReason: (p as any).suspended_reason || undefined,
           }));
         }
       } else {
@@ -402,6 +414,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               activeProjects: 0,
               verified: true,
               rating: 4.8,
+              suspended: false,
             });
           }
         }
@@ -490,6 +503,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refresh();
   }, [initialized, refresh]);
 
+  // The RLS/RPC checks are what actually stop a suspended account from doing
+  // anything, but leaving them logged in would just be confusing - sign them
+  // out and say why, the moment we learn about it.
+  useEffect(() => {
+    if (currentUser?.suspended) {
+      toast({
+        title: "Account suspended",
+        description: currentUser.suspendedReason
+          ? `Reason: ${currentUser.suspendedReason}`
+          : "Contact support for details.",
+        variant: "destructive",
+      });
+      authContext.signOut();
+    }
+  }, [currentUser?.suspended]);
+
   // Refetch whenever anything relevant changes, in this session or another.
   useEffect(() => {
     if (!currentUser) return;
@@ -532,6 +561,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
     if (updates.avatar !== undefined) dbUpdates.avatar_url = updates.avatar;
     if (updates.specialization !== undefined) dbUpdates.specialization = updates.specialization;
+    if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
 
     const result = await authContext.updateProfile(dbUpdates as any);
     if (!result.success) {
@@ -712,6 +742,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refresh();
   };
 
+  const suspendUser = async (userId: string, suspended: boolean, reason?: string) => {
+    const { error } = await supabase.rpc("set_user_suspension", {
+      _user_id: userId,
+      _suspended: suspended,
+      _reason: reason || null,
+    });
+    if (error) return { success: false, error: error.message };
+    await refresh();
+    return { success: true };
+  };
+
   const applyAsExpert = async (specialization: string, credentials: string) => {
     if (!currentUser) return { success: false, error: "Not logged in" };
     const { error } = await supabase.from("expert_applications").insert({
@@ -748,10 +789,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const completeOnboarding = () => {
-    setHasSeenOnboarding(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("projectsupport_onboarding_seen", "true");
-    }
+    // Fire-and-forget: the modal closes immediately from local state in the
+    // pages that call this; this call just makes sure it never comes back.
+    void updateProfile({ onboardingCompleted: true });
   };
 
   const value: AppContextType = {
@@ -777,6 +817,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reviewExpertApplication,
     requestPayout,
     setMilestoneFeedback,
+    suspendUser,
     refresh,
     completeOnboarding,
   };

@@ -7,14 +7,12 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
-import { ProfileDropdown } from "@/components/dashboard/ProfileDropdown";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useApp } from "@/contexts/AppContext";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  GraduationCap, 
   Clock, 
   CheckCircle2, 
   ArrowRight,
@@ -123,63 +121,39 @@ const ExpertDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Onboarding Modal */}
+    <>
       <OnboardingModal open={showOnboarding} onComplete={handleCompleteOnboarding} />
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-              <GraduationCap className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold text-foreground">ProjectSupport</span>
-            <Badge variant="outline" className="ml-2 text-xs">Expert</Badge>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <NotificationsPanel
-              notifications={notifications}
-              onMarkAsRead={markNotificationAsRead}
-              onMarkAllAsRead={markAllNotificationsAsRead}
-              onDelete={deleteNotification}
-            />
-            <ProfileDropdown
-              user={currentUser}
-              onUpdateProfile={updateProfile}
-              onLogout={handleLogout}
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container py-8">
-        {/* Welcome Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                Welcome back, {currentUser.name.split(" ")[0]} 👋
-              </h1>
-              {currentUser.verified && (
-                <Badge className="bg-success/10 text-success border-success/20">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Verified
-                </Badge>
-              )}
-            </div>
-            <p className="text-muted-foreground">
-              Manage your assigned projects and help students succeed.
-            </p>
-          </div>
-          <Button asChild className="gap-2">
+      <DashboardLayout
+        role="expert"
+        title="Expert Dashboard"
+        description="Manage your assigned projects and help students succeed."
+        notifications={notifications}
+        onMarkAsRead={markNotificationAsRead}
+        onMarkAllAsRead={markAllNotificationsAsRead}
+        onDeleteNotification={deleteNotification}
+        user={currentUser}
+        onUpdateProfile={updateProfile}
+        onLogout={handleLogout}
+        headerActions={
+          <Button asChild size="sm" className="gap-2">
             <Link to="/expert/earnings">
               <Wallet className="h-4 w-4" />
               View Earnings
             </Link>
           </Button>
+        }
+      >
+        <div className="flex items-center gap-2 mb-6">
+          <h2 className="text-xl font-semibold text-foreground">
+            Welcome back, {currentUser.name.split(" ")[0]} 👋
+          </h2>
+          {currentUser.verified && (
+            <Badge className="bg-success/10 text-success border-success/20">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Verified
+            </Badge>
+          )}
         </div>
 
         {/* Verification gate: you cannot be assigned to a project until an
@@ -412,8 +386,8 @@ const ExpertDashboard = () => {
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </DashboardLayout>
+    </>
   );
 };
 

@@ -13,6 +13,7 @@ import Signup from "./pages/Signup";
 import StudentDashboard from "./pages/StudentDashboard";
 import ExpertDashboard from "./pages/ExpertDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import ProjectDetail from "./pages/ProjectDetail";
 import ExpertProjectDetail from "./pages/ExpertProjectDetail";
 import ExpertEarnings from "./pages/ExpertEarnings";
@@ -95,6 +96,11 @@ const App = () => (
                 <Route path="/admin" element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/analytics" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminAnalytics />
                   </ProtectedRoute>
                 } />
                 
